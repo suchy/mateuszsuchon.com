@@ -1,0 +1,353 @@
+---
+title: Dependency Injection in Typescript
+date: 2022-09-20
+description:
+---
+
+There is a big chance you got to similar situation: you solved a problem with code. You wrote a function. You noticed that your function is doing too much, so you decided to extract some pieces to external modules. Now it's time to write tests. You figured out all test cases, structure, descriptions... and you stuck. Your function needs to get data from database, so you have to run database or mock database client. Your fuction is talking to external service? You need to run or mock that too.
+
+Instead of focusing on testing your function essentials, you are spending your time and energy on mocking. Looks like your code is too coupled.
+
+## Dependency injection to the rescue - loosing coupling
+
+Dependency injection is an idea to pass external functions (I'm focused on functions but it could be anything) as your function argument. Did you ever passed function as `onClick` component property in React, Vue, Svelte etc? Yeap, that's dependency injection.
+
+Time for example. I will go with Typescript, but Javascript is perfectly fine too. For tests I'm using [Vitest](https://vitest.dev).
+
+Let's assume this is your function:
+
+```
+import { fetchProduct, saveProduct } from "./repository";
+
+export async function increaseProductQuantity(
+  productId: string,
+  quantity: number
+) {
+  if (quantity <= 0) {
+    throw new Error(`Quantity must be greater than 0.`);
+  }
+
+  const product = await fetchProduct(productId);
+
+  if (!product) {
+    throw new Error(`Product ${productId} not found.`);
+  }
+
+  const updatedQuantity = product.quantity + quantity;
+
+  const updatedProduct = { ...product, quantity: updatedQuantity };
+
+  await saveProduct(updatedProduct);
+
+  return updatedProduct;
+}
+```
+
+It’s a simple function that fetches a product, updates it’s quantity and saves the product or throws an error.
+And these might be the tests for it:
+
+```
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { increaseProductQuantity } from "./increaseProductQuantity";
+
+vi.mock("./repository", () => ({
+  fetchProduct: vi.fn(() =>
+    Promise.resolve({
+      name: "Storm Trooper figure",
+      productId: "product-uuid",
+      quantity: 1,
+    })
+  ),
+  saveProduct: vi.fn(() => Promise.resolve()),
+}));
+
+describe("increaseProductQuantity", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should return product with updated quantity", async () => {
+    const updatedProduct = await increaseProductQuantity("product-uuid", 3);
+
+    expect(updatedProduct).toStrictEqual({
+      name: "Storm Trooper figure",
+      productId: "product-uuid",
+      quantity: 4,
+    });
+  });
+
+  it("should throw an error if quantity is lower or equal 0", async () => {
+    expect(() => increaseProductQuantity("product-uuid", 0)).rejects.toThrow();
+    expect(() => increaseProductQuantity("product-uuid", -1)).rejects.toThrow();
+  });
+
+  it("should throw an error if product was not found", async () => {
+    vi.clearAllMocks();
+
+    vi.mock("./repository", () => ({
+      fetchProduct: vi.fn(() => Promise.resolve()),
+      saveProduct: vi.fn(() => Promise.resolve()),
+    }));
+
+    expect(() =>
+      increaseProductQuantity("not-found-product-uuid", 3)
+    ).toThrowError("Product not-found-product-uuid not found.");
+  });
+});
+
+```
+
+As you can see you need to mock the whole `repository` module. Doesn't look scary yet, but it will get much worse when complexity increase. And we’ve already arrived at the issue: the "should throw an error if product was not found" case will fail becasue re-mocking a module isn't an easy job. There is a problem with function hoisting, and to be honest I didn't find a simple solution for that.
+
+Now let’s try to inject the `fetchProduct` and `saveProduct` dependencies:
+
+```
+import type { Product } from "./product";
+
+export async function increaseProductQuantity(
+  fetchProduct: (productId: string) => Promise<Product | undefined>,
+  saveProduct: (product: Product) => Promise<void>,
+  productId: string,
+  quantity: number
+) {
+  if (quantity <= 0) {
+    throw new Error(`Quantity must be greater than 0.`);
+  }
+
+  const product = await fetchProduct(productId);
+
+  if (!product) {
+    throw new Error(`Product ${productId} not found.`);
+  }
+
+  const updatedQuantity = product.quantity + quantity;
+
+  const updatedProduct = { ...product, quantity: updatedQuantity };
+
+  await saveProduct(updatedProduct);
+
+  return updatedProduct;
+}
+```
+
+Now both dependencies are passed as function arguments. From this moment `increaseProductQuantity` doesn't care where those functions comes from, as long as their types matches expectations.
+
+Lets try to test it:
+
+```
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { increaseProductQuantity } from "./increaseProductQuantity";
+import { Product } from "./product";
+
+describe("increaseProductQuantity", () => {
+  let saveProduct: () => Promise<void>;
+
+  let product: Product;
+
+  beforeEach(() => {
+    product = {
+      name: "Storm Trooper figure",
+      productId: "product-uuid",
+      quantity: 1,
+    };
+
+    saveProduct = vi.fn(() => Promise.resolve());
+  });
+
+  it("should return product with updated quantity", async () => {
+    const fetchProduct = vi.fn(() => Promise.resolve(product));
+
+    const updatedProduct = await increaseProductQuantity(
+      fetchProduct,
+      saveProduct,
+      "product-uuid",
+      3
+    );
+
+    expect(updatedProduct).toStrictEqual({ ...product, quantity: 4 });
+  });
+
+  it("should throw an error if quantity is lower or equal 0", async () => {
+    const fetchProduct = vi.fn(() => Promise.resolve(product));
+
+    expect(() =>
+      increaseProductQuantity(fetchProduct, saveProduct, "product-uuid", 0)
+    ).rejects.toThrow();
+
+    expect(() =>
+      increaseProductQuantity(fetchProduct, saveProduct, "product-uuid", -1)
+    ).rejects.toThrow();
+  });
+
+  it("should throw an error if product was not found", async () => {
+    const fetchProduct = vi.fn(() => Promise.resolve(undefined));
+
+    expect(() =>
+      increaseProductQuantity(fetchProduct, saveProduct, "product-uuid", 3)
+    ).rejects.toThrow();
+  });
+});
+
+```
+
+Now it's super easy to test different scenarios. Tests are simpler and more explicit. You need less mental energy to wrap your head around those tests. And that means less likely to drop testing.
+
+## Introducing dependency injection in the code base
+
+So far we understood the idea, but how can we implement it in a project? I'd like to propose two ways: local dependency injection (yeah, I need work more on naming things) with a factory and dependency injection container.
+
+### Local dependency injection
+
+It’s a great way to bring a dependency injection into the project. This way you won’t need to rework all of it, you can just change the bits you need one at a time.
+
+I'd like to split the function dependency part from function arguments. I'm using a factory and closure for that:
+
+```
+import type { Product } from "../product";
+
+export function IncreaseProductQuantityFactory(
+  fetchProduct: (productId: string) => Promise<Product | undefined>,
+  saveProduct: (product: Product) => Promise<void>
+) {
+  return async function increaseProductQuantity(
+    productId: string,
+    quantity: number
+  ) {
+    if (quantity <= 0) {
+      throw new Error(`Quantity must be greater than 0.`);
+    }
+
+    const product = await fetchProduct(productId);
+
+    if (!product) {
+      throw new Error(`Product ${productId} not found.`);
+    }
+
+    const updatedQuantity = product.quantity + quantity;
+
+    const updatedProduct = { ...product, quantity: updatedQuantity };
+
+    await saveProduct(updatedProduct);
+
+    return updatedProduct;
+  };
+}
+```
+
+So, factory function has dependencies as arguments. It returns end function. Because of closure end function has access to dependencies.
+
+Now we can create another file, which will inject real dependencies, and allow us to use our function in the project.
+
+```
+import { fetchProduct, saveProduct } from "../repository";
+import { IncreaseProductQuantityFactory } from "./IncreaseProductQuantityFactory";
+
+export const increaseProductQuantity = IncreaseProductQuantityFactory(
+  fetchProduct,
+  saveProduct
+);
+```
+
+This approach lets you go function by function, or you can refactor only the parts you need.
+
+### Dependency injection container
+
+Before we move forward let’s add ServerFactory:
+
+```
+import express from "express";
+import bodyParser from "body-parser";
+import { Product } from "./product";
+
+interface ServerFactoryDependencies {
+  increaseProductQuantity: (
+    productId: string,
+    quantity: number
+  ) => Promise<Product>;
+}
+
+export function ServerFactory({
+  increaseProductQuantity,
+}: ServerFactoryDependencies) {
+  return function () {
+    const app = express();
+
+    app.use(bodyParser.json());
+
+    app.patch("/products/:productId", async (req, res) => {
+      const { productId } = req.params;
+
+      const { quantity } = req.body;
+
+      const updatedProduct = await increaseProductQuantity(productId, quantity);
+
+      res.json(updatedProduct).status(200);
+    });
+
+    app.listen(3000, () => {
+      console.log("Example app listening on port 3000");
+    });
+  };
+}
+```
+
+As you can see our `server` depends on `increaseProductQuantity`, and `increaseProductQuantity` depends on `fetchProduct` and `saveProduct`. So far we could manage just with a local dependency injection. When our application starts to grow, resolving dependencies might be complex.
+
+Sometimes you might want to have one, center place to resolve all your dependencies. This is called Dependency Injection Container. For that purpose I'm using [Awilix](https://github.com/jeffijoe/awilix).
+
+Here’s an example of our dependency injection container:
+
+```
+import { AwilixContainer, createContainer, asFunction, asValue } from "awilix";
+import { IncreaseProductQuantityFactory } from "./increaseProductQuantity/IncreaseProductQuantityFactory";
+import { ServerFactory } from "./server";
+import { fetchProduct, saveProduct } from "./repository";
+
+let container: AwilixContainer;
+
+export function getContainer() {
+  if (container) {
+    return container;
+  }
+
+  const dependencies = {
+    fetchProduct: asValue(fetchProduct),
+    saveProduct: asValue(saveProduct),
+    increaseProductQuantity: asFunction(IncreaseProductQuantityFactory),
+    server: asFunction(ServerFactory),
+  };
+
+  container = createContainer();
+
+  container.register(dependencies);
+
+  return container;
+}
+```
+
+Here, we’re declaring the dependency’s object and then registering it in the container. Awilix is based on names. It will match keys in the dependency’s object with dependencies in factories.
+
+At some entry point we need to resolve at least one of the dependencies to run the application. In our case we will resolve the `server`, to run it in `index.ts`:
+
+```
+import { getContainer } from "./container";
+
+const container = getContainer();
+
+const server = container.resolve("server");
+
+server();
+```
+
+Of course Awilix is more capable than that. For details [visit Avilix documentation](https://github.com/jeffijoe/awilix#awilix).
+
+A dependency injection container might require more boilerplate, and more refactoring, but it allows us to keep our functions independent, and it scales well.
+
+## Local DI or container?
+
+Both these methods have their pros and cons. As always before you pick, you need to understand them, and how they can impact your application.
+
+I'd start with a local dependency injection, and when I figure it's not enough anymore I'd switch to a container.
+
+Give it a shot.
