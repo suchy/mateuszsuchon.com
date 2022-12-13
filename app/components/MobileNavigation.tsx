@@ -3,8 +3,8 @@ import type { HTMLAttributes } from "react";
 import { Fragment } from "react";
 import { Link } from "@remix-run/react";
 
-import { ChevronDownIcon } from "./ChevronDownIcon";
-import { CloseIcon } from "./CloseIcon";
+import { ChevronDownIcon } from "./icons/ChevronDownIcon";
+import { CloseIcon } from "./icons/CloseIcon";
 
 interface MobileNavigationProps {
   className?: string;
@@ -54,6 +54,7 @@ export const MobileNavigation = ({ className = "" }: MobileNavigationProps) => (
 
           <nav className="mt-6">
             <ul className="-my-2 divide-y divide-zinc-100 text-base text-zinc-800 dark:divide-zinc-100/5 dark:text-zinc-300">
+              <MobileNavItem to="/">Home</MobileNavItem>
               <MobileNavItem to="/about">About</MobileNavItem>
               <MobileNavItem to="/articles">Articles</MobileNavItem>
             </ul>

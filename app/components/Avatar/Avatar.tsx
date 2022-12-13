@@ -1,6 +1,8 @@
 import type { HTMLAttributes } from "react";
 import { Link } from "@remix-run/react";
 
+import avatarImage from "./avatar.webp";
+
 interface AvatarProps extends HTMLAttributes<HTMLAnchorElement> {
   large?: boolean;
 }
@@ -8,7 +10,7 @@ interface AvatarProps extends HTMLAttributes<HTMLAnchorElement> {
 export const Avatar = ({ className = "", large }: AvatarProps) => (
   <Link to="/" aria-label="Home" className={`pointer-events-auto ${className}`}>
     <img
-      src="https://via.placeholder.com/64.webp"
+      src={avatarImage}
       alt="Mateusz Suchoń"
       sizes={large ? "4rem" : "2.25rem"}
       className={`rounded-full bg-zinc-100 object-cover dark:bg-zinc-800

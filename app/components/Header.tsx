@@ -1,13 +1,13 @@
 import { useLocation } from "@remix-run/react";
 import { Fragment, useEffect, useRef } from "react";
 
-import { Avatar } from "./Avatar";
+import { Avatar } from "./Avatar/Avatar";
 import { AvatarContainer } from "./AvatarContainer";
 import { Container } from "./Container";
 import { MobileNavigation } from "./MobileNavigation";
-import { MoonIcon } from "./MoonIcon";
+import { MoonIcon } from "./icons/MoonIcon";
 import { Navigation } from "./Navigation";
-import { SunIcon } from "./SunIcon";
+import { SunIcon } from "./icons/SunIcon";
 
 function ModeToggle() {
   function disableTransitionsTemporarily() {

@@ -1,7 +1,9 @@
 ---
 title: Dependency Injection in Typescript
-date: 2022-09-20
-description:
+date: 2022-09-29
+description: Dependency injection is a simple way to decouple code and make it easier to test. Let me introduce you to the general idea and two ways of implementing it in your project.
+imageFile: dependency-injection-in-typescript.png
+twitterUrl: https://twitter.com/suchy/status/1575501451828203521
 ---
 
 There is a big chance you got to similar situation: you solved a problem with code. You wrote a function. You noticed that your function is doing too much, so you decided to extract some pieces to external modules. Now it's time to write tests. You figured out all test cases, structure, descriptions... and you stuck. Your function needs to get data from database, so you have to run database or mock database client. Your fuction is talking to external service? You need to run or mock that too.
@@ -13,6 +15,8 @@ Instead of focusing on testing your function essentials, you are spending your t
 Dependency injection is an idea to pass external functions (I'm focused on functions but it could be anything) as your function argument. Did you ever passed function as `onClick` component property in React, Vue, Svelte etc? Yeap, that's dependency injection.
 
 Time for example. I will go with Typescript, but Javascript is perfectly fine too. For tests I'm using [Vitest](https://vitest.dev).
+
+You can find all code examples in [this repository](https://github.com/suchy/dependency-injection-in-typescript-examples).
 
 Let's assume this is your function:
 

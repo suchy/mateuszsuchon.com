@@ -7,6 +7,7 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import { MetronomeLinks } from "@metronome-sh/react";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 
@@ -14,11 +15,31 @@ import styles from "./styles/app.css";
 
 export const meta: MetaFunction = () => ({
   charset: "utf-8",
-  title: "Mateusz Suchoń",
+  title: "Mateusz Suchoń - Software Developer",
+  description:
+    "I’m Mateusz, a software developer, mentor and indie hacker based in Kraków. I'm focused to solve business problems with web technology.",
   viewport: "width=device-width,initial-scale=1",
 });
 
-export const links: LinksFunction = () => [{ rel: "stylesheet", href: styles }];
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: styles },
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+  {
+    rel: "icon",
+    sizes: "32x32",
+    type: "image/png",
+    href: "/favicon-32x32.png",
+  },
+  {
+    rel: "icon",
+    sizes: "16x16",
+    type: "image/png",
+    href: "/favicon-16x16.png",
+  },
+  { rel: "apple-touch-icon", sizes: "32x32", href: "/apple-touch-icon.png" },
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+];
 
 export default function App() {
   return (
@@ -27,6 +48,7 @@ export default function App() {
         <Meta />
         <script dangerouslySetInnerHTML={{ __html: modeScript }} />
         <Links />
+        <MetronomeLinks />
       </head>
       <body className="flex h-full flex-col bg-zinc-50 dark:bg-black">
         <div className="fixed inset-0 flex justify-center sm:px-8">
