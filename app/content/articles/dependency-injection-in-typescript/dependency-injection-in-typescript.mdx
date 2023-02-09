@@ -20,7 +20,7 @@ You can find all code examples in [this repository](https://github.com/suchy/dep
 
 Let's assume this is your function:
 
-```
+```typescript
 import { fetchProduct, saveProduct } from "./repository";
 
 export async function increaseProductQuantity(
@@ -50,7 +50,7 @@ export async function increaseProductQuantity(
 It’s a simple function that fetches a product, updates it’s quantity and saves the product or throws an error.
 And these might be the tests for it:
 
-```
+```typescript
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { increaseProductQuantity } from "./increaseProductQuantity";
 
@@ -98,14 +98,13 @@ describe("increaseProductQuantity", () => {
     ).toThrowError("Product not-found-product-uuid not found.");
   });
 });
-
 ```
 
 As you can see you need to mock the whole `repository` module. Doesn't look scary yet, but it will get much worse when complexity increase. And we’ve already arrived at the issue: the "should throw an error if product was not found" case will fail becasue re-mocking a module isn't an easy job. There is a problem with function hoisting, and to be honest I didn't find a simple solution for that.
 
 Now let’s try to inject the `fetchProduct` and `saveProduct` dependencies:
 
-```
+```typescript
 import type { Product } from "./product";
 
 export async function increaseProductQuantity(
@@ -138,7 +137,7 @@ Now both dependencies are passed as function arguments. From this moment `increa
 
 Lets try to test it:
 
-```
+```typescript
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { increaseProductQuantity } from "./increaseProductQuantity";
@@ -192,7 +191,6 @@ describe("increaseProductQuantity", () => {
     ).rejects.toThrow();
   });
 });
-
 ```
 
 Now it's super easy to test different scenarios. Tests are simpler and more explicit. You need less mental energy to wrap your head around those tests. And that means less likely to drop testing.
@@ -207,7 +205,7 @@ It’s a great way to bring a dependency injection into the project. This way yo
 
 I'd like to split the function dependency part from function arguments. I'm using a factory and closure for that:
 
-```
+```typescript
 import type { Product } from "../product";
 
 export function IncreaseProductQuantityFactory(
@@ -243,7 +241,7 @@ So, factory function has dependencies as arguments. It returns end function. Bec
 
 Now we can create another file, which will inject real dependencies, and allow us to use our function in the project.
 
-```
+```typescript
 import { fetchProduct, saveProduct } from "../repository";
 import { IncreaseProductQuantityFactory } from "./IncreaseProductQuantityFactory";
 
@@ -259,7 +257,7 @@ This approach lets you go function by function, or you can refactor only the par
 
 Before we move forward let’s add ServerFactory:
 
-```
+```typescript
 import express from "express";
 import bodyParser from "body-parser";
 import { Product } from "./product";
@@ -302,7 +300,7 @@ Sometimes you might want to have one, center place to resolve all your dependenc
 
 Here’s an example of our dependency injection container:
 
-```
+```typescript
 import { AwilixContainer, createContainer, asFunction, asValue } from "awilix";
 import { IncreaseProductQuantityFactory } from "./increaseProductQuantity/IncreaseProductQuantityFactory";
 import { ServerFactory } from "./server";
